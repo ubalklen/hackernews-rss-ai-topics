@@ -38,7 +38,7 @@ Replace `<username>` with the repository owner's GitHub username.
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/ubalklen/hackernews-rss-ai-topics.git
+git clone https://github.com/<username>/hackernews-rss-ai-topics.git
 cd hackernews-rss-ai-topics
 ```
 
@@ -123,9 +123,9 @@ uv run ruff check .
 
 The project uses GitHub Actions to automatically update the RSS feed:
 
-- **Schedule**: Runs every 6 hours
-- **Manual trigger**: Can be triggered manually via workflow_dispatch
-- **Deployment**: Automatically deploys to GitHub Pages
+- **Schedule**: Runs every 6 hours.
+- **Manual trigger**: Can be triggered manually via workflow_dispatch.
+- **Deployment**: Automatically deploys to GitHub Pages.
 
 ## Dependencies
 
