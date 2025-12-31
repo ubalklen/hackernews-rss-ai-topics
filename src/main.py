@@ -79,14 +79,18 @@ def generate_rss(stories: list[dict], output_path: str):
     fg.language("en")
 
     for story in stories:
+        comments_url = f"https://news.ycombinator.com/item?id={story.get('id')}"
         fe = fg.add_entry()
         fe.id(str(story.get("id")))
         fe.title(story.get("title"))
-        fe.link(href=story.get("url"))
+        fe.link(href=comments_url)
         fe.published(datetime.fromtimestamp(story.get("time"), tz=timezone.utc))
-        fe.description(
-            f"Comments: https://news.ycombinator.com/item?id={story.get('id')}"
-        )
+        
+        original_url = story.get("url")
+        if original_url and original_url != comments_url:
+            fe.description(f"Article: {original_url}")
+        else:
+            fe.description(f"Comments: {comments_url}")
 
     fg.rss_file(output_path)
     logging.info(f"RSS feed generated at {output_path}")
