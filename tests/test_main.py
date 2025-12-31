@@ -1,11 +1,20 @@
 from unittest.mock import patch, MagicMock, mock_open
-from src.main import filter_stories, fetch_top_stories, load_keywords, matches_keyword
+from src.main import (
+    filter_stories,
+    fetch_top_stories,
+    load_keywords_from_file,
+    load_keywords_from_env,
+    matches_keyword,
+    main,
+)
+import argparse
+import os
 
 
-def test_load_keywords():
+def test_load_keywords_from_file():
     mock_keywords_content = "GPT\nLLM\nAI\n\nMachine Learning\n"
     with patch("builtins.open", mock_open(read_data=mock_keywords_content)):
-        keywords = load_keywords("keywords.txt")
+        keywords = load_keywords_from_file("keywords.txt")
         assert len(keywords) == 4
         assert "GPT" in keywords
         assert "LLM" in keywords
@@ -13,10 +22,130 @@ def test_load_keywords():
         assert "Machine Learning" in keywords
 
 
-def test_load_keywords_file_not_found():
+def test_load_keywords_from_file_not_found():
     with patch("builtins.open", side_effect=FileNotFoundError):
-        keywords = load_keywords("nonexistent.txt")
+        keywords = load_keywords_from_file("nonexistent.txt")
         assert keywords == []
+
+
+def test_load_keywords_from_env():
+    with patch.dict(os.environ, {"TEST_KEYWORDS": "Python, Rust, GoLang"}):
+        keywords = load_keywords_from_env("TEST_KEYWORDS")
+        assert len(keywords) == 3
+        assert "Python" in keywords
+        assert "Rust" in keywords
+        assert "GoLang" in keywords
+
+
+def test_load_keywords_from_env_missing():
+    with patch.dict(os.environ, {}, clear=True):
+        keywords = load_keywords_from_env("NONEXISTENT_VAR")
+        assert keywords == []
+
+
+@patch("src.main.fetch_top_stories")
+@patch("src.main.filter_stories")
+@patch("src.main.generate_rss")
+@patch("src.main.load_keywords_from_file")
+@patch("src.main.load_keywords_from_env")
+def test_main_priority_args(
+    mock_load_env,
+    mock_load_file,
+    mock_generate,
+    mock_filter,
+    mock_fetch,
+):
+    # Test priority 1: Direct args
+    with patch(
+        "src.main.parse_args",
+        return_value=argparse.Namespace(
+            keywords=["Arg1", "Arg2"], keywords_file=None, keywords_env=None
+        ),
+    ):
+        main()
+        # Should use args directly, not call file or env loaders
+        mock_load_file.assert_not_called()
+        mock_load_env.assert_not_called()
+        # Verify filter was called with the args
+        mock_filter.assert_called_with(mock_fetch.return_value, ["Arg1", "Arg2"])
+
+
+@patch("src.main.fetch_top_stories")
+@patch("src.main.filter_stories")
+@patch("src.main.generate_rss")
+@patch("src.main.load_keywords_from_file")
+@patch("src.main.load_keywords_from_env")
+def test_main_priority_file(
+    mock_load_env,
+    mock_load_file,
+    mock_generate,
+    mock_filter,
+    mock_fetch,
+):
+    # Test priority 2: File args
+    mock_load_file.return_value = ["File1"]
+    with patch(
+        "src.main.parse_args",
+        return_value=argparse.Namespace(
+            keywords=None, keywords_file="test.txt", keywords_env=None
+        ),
+    ):
+        main()
+        mock_load_file.assert_called_with("test.txt")
+        mock_load_env.assert_not_called()
+        mock_filter.assert_called_with(mock_fetch.return_value, ["File1"])
+
+
+@patch("src.main.fetch_top_stories")
+@patch("src.main.filter_stories")
+@patch("src.main.generate_rss")
+@patch("src.main.load_keywords_from_file")
+@patch("src.main.load_keywords_from_env")
+def test_main_priority_env(
+    mock_load_env,
+    mock_load_file,
+    mock_generate,
+    mock_filter,
+    mock_fetch,
+):
+    # Test priority 3: Env args
+    mock_load_env.return_value = ["Env1"]
+    with patch(
+        "src.main.parse_args",
+        return_value=argparse.Namespace(
+            keywords=None, keywords_file=None, keywords_env="TEST_VAR"
+        ),
+    ):
+        main()
+        mock_load_file.assert_not_called()
+        mock_load_env.assert_called_with("TEST_VAR")
+        mock_filter.assert_called_with(mock_fetch.return_value, ["Env1"])
+
+
+@patch("src.main.fetch_top_stories")
+@patch("src.main.filter_stories")
+@patch("src.main.generate_rss")
+@patch("src.main.load_keywords_from_file")
+@patch("src.main.load_keywords_from_env")
+def test_main_no_args(
+    mock_load_env,
+    mock_load_file,
+    mock_generate,
+    mock_filter,
+    mock_fetch,
+):
+    # Test priority 4: No args (Default)
+    with patch(
+        "src.main.parse_args",
+        return_value=argparse.Namespace(
+            keywords=None, keywords_file=None, keywords_env=None
+        ),
+    ):
+        main()
+        mock_load_file.assert_not_called()
+        mock_load_env.assert_not_called()
+        # Should pass empty list to filter (no filtering)
+        mock_filter.assert_called_with(mock_fetch.return_value, [])
 
 
 def test_filter_stories():

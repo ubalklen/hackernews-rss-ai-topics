@@ -1,7 +1,7 @@
 [project]
-name = "hackernews-rss-ai-topics"
+name = "my-hacker-news-rss"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Python-based RSS feed generator that filters Hacker News stories based on customizable keywords."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

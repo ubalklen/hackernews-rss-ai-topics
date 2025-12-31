@@ -1,6 +1,7 @@
 import requests
 from feedgen.feed import FeedGenerator
 import os
+import argparse
 from datetime import datetime, timezone
 import logging
 import re
@@ -13,10 +14,9 @@ logging.basicConfig(
 HN_API_BASE = "https://hacker-news.firebaseio.com/v0"
 OUTPUT_DIR = "public"
 OUTPUT_FILE = "feed.xml"
-KEYWORDS_FILE = "keywords.txt"
 
 
-def load_keywords(filepath: str = KEYWORDS_FILE) -> list[str]:
+def load_keywords_from_file(filepath: str) -> list[str]:
     """Load keywords from a file, one keyword per line."""
     try:
         with open(filepath, "r") as f:
@@ -28,6 +28,20 @@ def load_keywords(filepath: str = KEYWORDS_FILE) -> list[str]:
         return []
     except Exception as e:
         logging.error(f"Error loading keywords from {filepath}: {e}")
+        return []
+
+
+def load_keywords_from_env(env_var_name: str) -> list[str]:
+    """Load keywords from an environment variable (comma separated)."""
+    env_val = os.environ.get(env_var_name)
+    if env_val:
+        keywords = [k.strip() for k in env_val.split(",") if k.strip()]
+        logging.info(
+            f"Loaded {len(keywords)} keywords from environment variable {env_var_name}"
+        )
+        return keywords
+    else:
+        logging.warning(f"Environment variable {env_var_name} not found or empty.")
         return []
 
 
@@ -65,7 +79,7 @@ def matches_keyword(text: str, keyword: str) -> bool:
 
 
 def filter_stories(story_ids: list[int], keywords: list[str]) -> list[dict]:
-    """Filter stories based on keywords in the title."""
+    """Filter stories based on keywords in the title. If keywords is empty, return all stories."""
     filtered_stories = []
     for story_id in story_ids:
         story = fetch_story_details(story_id)
@@ -77,9 +91,12 @@ def filter_stories(story_ids: list[int], keywords: list[str]) -> list[dict]:
             story["url"] = f"https://news.ycombinator.com/item?id={story['id']}"
 
         title = story["title"]
-        if any(matches_keyword(title, keyword) for keyword in keywords):
+        if not keywords or any(matches_keyword(title, keyword) for keyword in keywords):
             filtered_stories.append(story)
-            logging.info(f"Found match: {title}")
+            if keywords:
+                logging.info(f"Found match: {title}")
+            else:
+                logging.debug(f"Adding story (no filter): {title}")
 
     return filtered_stories
 
@@ -88,10 +105,10 @@ def generate_rss(stories: list[dict], output_path: str):
     """Generate RSS feed from stories."""
     fg = FeedGenerator()
     fg.id("https://news.ycombinator.com/")
-    fg.title("Hacker News AI Topics")
+    fg.title("Hacker News Filtered Topics")
     fg.author({"name": "Hacker News RSS Bot"})
     fg.link(href="https://news.ycombinator.com/", rel="alternate")
-    fg.subtitle("Top AI/ML stories from Hacker News")
+    fg.subtitle("Filtered stories from Hacker News")
     fg.language("en")
 
     for story in stories:
@@ -112,13 +129,35 @@ def generate_rss(stories: list[dict], output_path: str):
     logging.info(f"RSS feed generated at {output_path}")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Hacker News RSS Filter")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--keywords", nargs="+", help="List of keywords to filter by")
+    group.add_argument("--keywords-file", help="Path to a file containing keywords")
+    group.add_argument(
+        "--keywords-env",
+        help="Name of the environment variable containing keywords (comma separated)",
+    )
+    return parser.parse_args()
+
+
 def main():
     logging.info("Starting HN RSS fetcher...")
 
-    keywords = load_keywords()
-    if not keywords:
-        logging.error("No keywords loaded. Exiting.")
-        return
+    args = parse_args()
+    keywords = []
+
+    if args.keywords:
+        keywords = args.keywords
+        logging.info(f"Loaded {len(keywords)} keywords from arguments")
+    elif args.keywords_file:
+        keywords = load_keywords_from_file(args.keywords_file)
+    elif args.keywords_env:
+        keywords = load_keywords_from_env(args.keywords_env)
+    else:
+        # Default behavior: No filtering if no arguments provided
+        keywords = []
+        logging.info("No keywords provided. Fetching all stories (no filtering).")
 
     top_ids = fetch_top_stories(limit=100)  # Check top 100 stories
     logging.info(f"Fetched {len(top_ids)} top stories.")

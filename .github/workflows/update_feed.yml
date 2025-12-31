@@ -31,7 +31,7 @@ jobs:
         run: uv sync --frozen --no-dev
 
       - name: Run script
-        run: uv run src/main.py
+        run: uv run src/main.py --keywords-file keywords.txt
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
