@@ -2,6 +2,8 @@
 
 A Python-based RSS feed generator that filters Hacker News top stories for AI and machine learning related topics. The feed is automatically updated every 6 hours via GitHub Actions and published to GitHub Pages.
 
+A feed is available at https://ubalklen.github.io/hackernews-rss-ai-topics/feed.xml
+
 ## Features
 
 - 🔍 **Keyword-based filtering**: Filters Hacker News top stories based on customizable AI/ML keywords
