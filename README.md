@@ -77,17 +77,7 @@ The RSS feed will be generated at `public/feed.xml`.
 
 ### Customize Keywords
 
-Edit the `KEYWORDS` list in `src/main.py`:
-
-```python
-KEYWORDS = [
-    "GPT",
-    "LLM",
-    "AI",
-    "Machine Learning",
-    # Add more keywords...
-]
-```
+To customize which keywords are used to filter Hacker News stories, edit the keywords configuration file. Check the `src/` directory for the keywords file (e.g., `keywords.txt` or similar) or the `KEYWORDS` list in the source code.
 
 ## Development
 
