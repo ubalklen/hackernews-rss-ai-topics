@@ -2,6 +2,7 @@ from unittest.mock import patch, MagicMock, mock_open
 from src.main import (
     filter_stories,
     fetch_top_stories,
+    fetch_top_comment,
     load_keywords_from_file,
     load_keywords_from_env,
     matches_keyword,
@@ -248,3 +249,72 @@ def test_filter_stories_with_false_positives():
         assert filtered[0]["id"] == 1
         assert filtered[1]["id"] == 3
         assert filtered[2]["id"] == 5
+
+
+@patch("src.main.requests.get")
+def test_fetch_top_comment_with_comments(mock_get):
+    """Test fetching top comment when story has comments"""
+    story = {
+        "id": 123,
+        "title": "Test Story",
+        "kids": [456, 789]  # Comment IDs
+    }
+    
+    # Mock the comment response
+    mock_comment_response = MagicMock()
+    mock_comment_response.json.return_value = {
+        "id": 456,
+        "text": "This is the top comment"
+    }
+    mock_get.return_value = mock_comment_response
+    
+    comment = fetch_top_comment(story)
+    assert comment == "This is the top comment"
+    mock_get.assert_called_once_with(
+        "https://hacker-news.firebaseio.com/v0/item/456.json", timeout=5
+    )
+
+
+@patch("src.main.requests.get")
+def test_fetch_top_comment_no_comments(mock_get):
+    """Test fetching top comment when story has no comments"""
+    story = {
+        "id": 123,
+        "title": "Test Story"
+        # No 'kids' field
+    }
+    
+    comment = fetch_top_comment(story)
+    assert comment is None
+    mock_get.assert_not_called()
+
+
+@patch("src.main.requests.get")
+def test_fetch_top_comment_empty_comments(mock_get):
+    """Test fetching top comment when story has empty kids array"""
+    story = {
+        "id": 123,
+        "title": "Test Story",
+        "kids": []  # Empty array
+    }
+    
+    comment = fetch_top_comment(story)
+    assert comment is None
+    mock_get.assert_not_called()
+
+
+@patch("src.main.requests.get")
+def test_fetch_top_comment_api_error(mock_get):
+    """Test fetching top comment when API request fails"""
+    import requests
+    story = {
+        "id": 123,
+        "title": "Test Story",
+        "kids": [456]
+    }
+    
+    # Mock API error
+    mock_get.side_effect = requests.RequestException("API Error")
+    
+    comment = fetch_top_comment(story)
+    assert comment is None

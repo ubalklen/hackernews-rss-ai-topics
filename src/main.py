@@ -67,6 +67,25 @@ def fetch_story_details(story_id: int) -> dict | None:
         return None
 
 
+def fetch_top_comment(story: dict) -> str | None:
+    """Fetch the top comment for a story.
+    
+    Returns the text of the first comment (kid) if available, None otherwise.
+    """
+    if not story or "kids" not in story or not story["kids"]:
+        return None
+    
+    top_comment_id = story["kids"][0]
+    try:
+        response = requests.get(f"{HN_API_BASE}/item/{top_comment_id}.json", timeout=5)
+        response.raise_for_status()
+        comment = response.json()
+        return comment.get("text")
+    except requests.RequestException as e:
+        logging.error(f"Error fetching comment {top_comment_id}: {e}")
+        return None
+
+
 def matches_keyword(text: str, keyword: str) -> bool:
     """Check if keyword matches as a whole word in text (case-insensitive).
 
@@ -119,11 +138,21 @@ def generate_rss(stories: list[dict], output_path: str):
         fe.link(href=comments_url)
         fe.published(datetime.fromtimestamp(story.get("time"), tz=timezone.utc))
 
+        # Fetch top comment for the story
+        top_comment = fetch_top_comment(story)
+        
+        # Build description with top comment if available
+        description_parts = []
+        if top_comment:
+            description_parts.append(f"Top comment: {top_comment}")
+        
         original_url = story.get("url")
         if original_url and original_url != comments_url:
-            fe.description(f"Article: {original_url}")
+            description_parts.append(f"Article: {original_url}")
         else:
-            fe.description(f"Comments: {comments_url}")
+            description_parts.append(f"Comments: {comments_url}")
+        
+        fe.description("<br><br>".join(description_parts))
 
     fg.rss_file(output_path)
     logging.info(f"RSS feed generated at {output_path}")
