@@ -10,6 +10,7 @@ from src.main import (
 )
 import argparse
 import os
+import requests
 
 
 def test_load_keywords_from_file():
@@ -306,7 +307,6 @@ def test_fetch_top_comment_empty_comments(mock_get):
 @patch("src.main.requests.get")
 def test_fetch_top_comment_api_error(mock_get):
     """Test fetching top comment when API request fails"""
-    import requests
     story = {
         "id": 123,
         "title": "Test Story",
