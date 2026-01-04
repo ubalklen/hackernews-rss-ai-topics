@@ -2,7 +2,7 @@ GPT
 LLM
 AI
 Machine Learning
-neural
+Neural
 OpenAI
 Claude
 Gemini
